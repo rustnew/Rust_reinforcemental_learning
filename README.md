@@ -1,3 +1,5 @@
+<img width="1427" height="1053" alt="Capture d’écran du 2025-10-31 23-11-27" src="https://github.com/user-attachments/assets/01eccfd6-b1ac-49f0-91df-4e93d6641530" />
+
 # 🚀 RocketRL — Simulation & Reinforcement Learning for Reusable Rocket Landing (Rust + Bevy)
 
 ### 🧠 Contrôler, stabiliser et faire atterrir une fusée réutilisable avec l’apprentissage par renforcement et Rust  (RL)
