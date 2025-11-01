@@ -1,74 +1,73 @@
-// Importe les traits et types de base de Bevy
 use bevy::prelude::*;
-// Importe les composants du module rocket
 use crate::game::rocket::{Rocket, RocketMainBody};
+use crate::game::GameState;
 
-// Constantes physiques
-const GRAVITY: f32 = -9.81 * 50.0; // Gravité terrestre adaptée à l'échelle du jeu
-const AIR_RESISTANCE: f32 = 0.1;   // Coefficient de résistance de l'air
-
-/// Composant pour les corps physiques avec vitesse
 #[derive(Component)]
 pub struct PhysicsBody {
-    pub velocity: Vec2,        // Vitesse linéaire (x, y)
-    pub angular_velocity: f32, // Vitesse angulaire (rotation)
+    pub velocity: Vec2,
+    pub angular_velocity: f32,
 }
 
-/// Plugin pour la gestion de la physique
+// CONSTANTES PHYSIQUES AJUSTÉES - GRAVITÉ RÉDUITE
+const GRAVITY: f32 = -9.81 * 15.0; // RÉDUIT de 25 à 15 (moins rapide)
+const AIR_RESISTANCE: f32 = 0.008;  // RÉSISTANCE RÉDUITE
+
 pub struct PhysicsPlugin;
 
-// Implémente le trait Plugin pour le système physique
 impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
-        // Ajoute les systèmes de physique à exécuter à chaque frame
         app.add_systems(Update, (apply_physics, apply_rocket_thrust));
     }
 }
 
-/// Applique la physique à tous les corps physiques
 fn apply_physics(
-    mut query: Query<(&mut Transform, &mut PhysicsBody)>, // Requête pour les entités avec physique
-    time: Res<Time>, // Ressource donnant le temps écoulé depuis la dernière frame
+    mut query: Query<(&mut Transform, &mut PhysicsBody)>,
+    time: Res<Time>,
+    game_state: Res<GameState>,
 ) {
-    // Parcourt toutes les entités avec Transform et PhysicsBody
+    if *game_state != GameState::Playing {
+        return;
+    }
+
     for (mut transform, mut body) in query.iter_mut() {
-        // Applique la gravité à la vitesse verticale
-        body.velocity.y += GRAVITY * time.delta_secs();
+        // Gravité plus douce
+        body.velocity.y += GRAVITY * time.delta_seconds();
         
-        // Applique la résistance de l'air (freinage)
-        body.velocity *= 1.0 - AIR_RESISTANCE * time.delta_secs();
+        // Résistance de l'air réduite
+        body.velocity *= 1.0 - (AIR_RESISTANCE * time.delta_seconds());
         
-        // Met à jour la position en fonction de la vitesse
-        transform.translation += Vec3::new(
-            body.velocity.x * time.delta_secs(), // Déplacement horizontal
-            body.velocity.y * time.delta_secs(), // Déplacement vertical
-            0.0, // Pas de déplacement en profondeur
-        );
+        // Limites de vitesse réalistes
+        body.velocity = body.velocity.clamp_length_max(200.0);
         
-        // Met à jour la rotation en fonction de la vitesse angulaire
-        transform.rotate_z(body.angular_velocity * time.delta_secs());
+        // Mise à jour position
+        transform.translation.x += body.velocity.x * time.delta_seconds();
+        transform.translation.y += body.velocity.y * time.delta_seconds();
+        
+        // Mise à jour rotation
+        transform.rotate_z(body.angular_velocity * time.delta_seconds());
+        
+        // Limite la rotation angulaire
+        body.angular_velocity = body.angular_velocity.clamp(-3.0, 3.0);
     }
 }
 
-/// Applique la poussée de la fusée à son corps physique
 fn apply_rocket_thrust(
-    mut query: Query<(&mut PhysicsBody, &Rocket, &Transform), With<RocketMainBody>>, // Requête pour la fusée
-    time: Res<Time>, // Ressource temps
+    mut query: Query<(&mut PhysicsBody, &Rocket, &Transform), With<RocketMainBody>>,
+    time: Res<Time>,
+    game_state: Res<GameState>,
 ) {
-    // Récupère la fusée (doit être une seule entité)
-    if let Ok((mut physics, rocket, transform)) = query.single_mut() {
-        // Vérifie si le moteur est allumé et qu'il reste du carburant
-        if rocket.throttle > 0.0 && rocket.fuel > 0.0 {
-            // Calcule la puissance de poussée actuelle
+    if *game_state != GameState::Playing {
+        return;
+    }
+
+    if let Ok((mut physics, rocket, transform)) = query.get_single_mut() {
+        if rocket.throttle > 0.0 && rocket.fuel > 0.0 && !rocket.has_crashed && !rocket.has_landed {
             let thrust_power = rocket.throttle * rocket.engine_power;
-            // Récupère l'angle actuel de la fusée
             let angle = transform.rotation.to_euler(EulerRot::XYZ).2;
             
-            // Calcule les composantes de la poussée en fonction de l'angle
-            // Poussée horizontale (sinus de l'angle)
-            physics.velocity.x += thrust_power * angle.sin() * time.delta_secs();
-            // Poussée verticale (cosinus de l'angle)
-            physics.velocity.y += thrust_power * angle.cos() * time.delta_secs();
+            // Poussée réaliste basée sur l'orientation
+            physics.velocity.x += thrust_power * angle.sin() * time.delta_seconds();
+            physics.velocity.y += thrust_power * angle.cos() * time.delta_seconds();
         }
     }
 }
