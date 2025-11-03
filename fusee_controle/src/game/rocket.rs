@@ -82,7 +82,7 @@ fn spawn_rocket(
     mut materials: ResMut<Assets<ColorMaterial>>,
     stats: Res<RocketStats>,
 ) {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::r#rng();
     
     // POSITION DE DÉPART ALÉATOIRE pour l'apprentissage RL
     let start_x = rng.gen_range(-100.0..100.0); // Position horizontale aléatoire
